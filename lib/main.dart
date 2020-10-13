@@ -1,7 +1,9 @@
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:ocarina/ocarina.dart';
 import 'package:package_info/package_info.dart';
+import 'package:just_audio/just_audio.dart';
 
 void main() {
   runApp(MyApp());
@@ -66,28 +68,66 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  OcarinaPlayer player;
+  OcarinaPlayer ocarinaPlayer = OcarinaPlayer(
+    asset: "assets/tactical_waves.wav",
+    // package: packageInfo.packageName,
+    loop: true,
+    volume: 1
+  );
+
+  AudioPlayer audioPlayer = AudioPlayer();
+
+  bool _ready;
+
   @override
   void initState() {
     
     Future.delayed(Duration.zero, () async {
-      PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      AudioPlayer audioPlayer = AudioPlayer();
+      
+      final session = await AudioSession.instance;  
+      await session.configure(AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.allowBluetoothA2dp,
+        avAudioSessionMode: AVAudioSessionMode.defaultMode,
+        avAudioSessionRouteSharingPolicy: AVAudioSessionRouteSharingPolicy.longFormAudio,
+        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+        androidAudioAttributes: AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.speech,
+          flags: AndroidAudioFlags.none,
+          usage: AndroidAudioUsage.voiceCommunication,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+        androidWillPauseWhenDucked: true,
+      ));
+
+      await audioPlayer.setAutomaticallyWaitsToMinimizeStalling(false);
+
+      // THIS IS WHERE I ADD A LOOPING AUDIO SOURCE
+      // IDEALLY I WOULD LIKE TO BE ABLE TO SPECIFICY HOW MANY LOOPS
+      // UNFORTUNATELY, WITH HOW THE PLUGIN IS CURRENTLY SETUP, THERE IS A SMALL GAP IN THE PLAYBACK 
       await audioPlayer.load(
-        LoopingAudioSource(child: AudioSource.uri(Uri.parse("asset:///assets/tactical_waves.wav")), count: 3)
+        LoopingAudioSource(
+          child: AudioSource.uri(Uri.parse("asset:///assets/tactical_waves.wav")),
+          count: 5,
+        ),
       );
-      audioPlayer.play();
-      // player = OcarinaPlayer(
-      // asset: "assets/tactical_waves.wav",
-      //   // package: packageInfo.packageName,
-      //   loop: true,
-      //   volume: 1
-      // );
-      // await player.load();
-      // await player.play();
+
+      // ALTERNATIVELY, THIS IS ANOTHER WAY WE COULD HANDLE LOOPING
+      // AGAIN, IT'D JUST BE IDEAL TO BE ABLE TO SPECIFICY A CERTAIN NUMBER OF LOOPS
+      // await audioPlayer.load(AudioSource.uri(Uri.parse("asset:///assets/tactical_waves.wav")));
+      // await audioPlayer.setLoopMode(LoopMode.all);
+
+      await ocarinaPlayer.load();
+
+      setState(() {
+        _ready = true;
+      });
+      
     });
+
     // TODO: implement initState
     super.initState();
+
   }
 
   @override
@@ -124,13 +164,27 @@ class _MyHomePageState extends State<MyHomePage> {
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
+            
+            RaisedButton(
+              onPressed: () => ocarinaPlayer.play(),
+              child: Text("Ocarina"),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
+
+            RaisedButton(
+              onPressed: () => audioPlayer.play(),
+              child: Text("JustAudio"),
             ),
+
+            RaisedButton(
+              onPressed: () => ocarinaPlayer.pause(),
+              child: Text("OcarinaPause"),
+            ),
+
+            RaisedButton(
+              onPressed: () => audioPlayer.pause(),
+              child: Text("JustAudioPause"),
+            ),
+
           ],
         ),
       ),
